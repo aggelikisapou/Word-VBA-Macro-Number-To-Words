@@ -1,0 +1,203 @@
+Option Explicit
+
+
+Function NumberToGreekWordsWithFraction(ByVal WholePart As Double, _
+                                        ByVal FractionPart As Long) As String
+
+    Dim Groups As Variant
+    Dim i As Long
+    Dim n As Double ' Έγινε Double για αποφυγή Overflow
+    Dim s As String
+    Dim part As String
+    
+    Groups = Array("", " χιλιάδες", " εκατομμύρια", " δισεκατομμύρια", " τρισεκατομμύρια")
+    
+    If WholePart = 0 Then
+        s = "μηδέν"
+    Else
+        i = 0
+        
+        Do While WholePart > 0
+            
+            ' Προστασία από Overflow (Το κλασικό Mod αντέχει μέχρι 2.1 δισ.)
+            n = WholePart - Int(WholePart / 1000) * 1000
+            
+            If n <> 0 Then
+
+                If i = 1 Then
+                    
+                    Select Case n
+                        Case 1
+                            part = "χίλια"
+                        Case 100
+                            part = "εκατό χιλιάδες"
+                        Case 101 To 199
+                            part = "εκατόν " & ThreeDigitsToGreek(CLng(n - 100), "F") & " χιλιάδες"
+                        Case Else
+                            part = ThreeDigitsToGreek(CLng(n), "F") & " χιλιάδες"
+                    End Select
+
+                Else
+                    
+                    part = ThreeDigitsToGreek(CLng(n), "N")
+                    
+                    If i > 1 Then
+                        If n = 1 Then
+                            Select Case i
+                                Case 2: part = part & " εκατομμύριο"
+                                Case 3: part = part & " δισεκατομμύριο"
+                                Case 4: part = part & " τρισεκατομμύριο"
+                            End Select
+                        Else
+                            Select Case i
+                                Case 2: part = part & " εκατομμύρια"
+                                Case 3: part = part & " δισεκατομμύρια"
+                                Case 4: part = part & " τρισεκατομμύρια"
+                            End Select
+                        End If
+                    End If
+                End If
+                
+                s = part & " " & s
+            End If
+            
+            WholePart = Int(WholePart / 1000)
+            i = i + 1
+            
+        Loop
+    End If
+    
+    s = Trim(s)
+
+    If FractionPart > 0 Then
+        s = s & " και " & Right("00" & CStr(FractionPart), 2) & "/100"
+    End If
+    
+    NumberToGreekWordsWithFraction = s
+
+End Function
+
+
+Private Function ThreeDigitsToGreek(ByVal n As Long, ByVal Gender As String) As String
+
+    ' Χρήση Static για να μη δημιουργούνται οι πίνακες κάθε φορά (μεγαλύτερη ταχύτητα)
+    Static Tens As Variant
+    Static UnitsF As Variant, HundredsF As Variant
+    Static UnitsN As Variant, HundredsN As Variant
+    Dim s As String
+    Dim isInitialized As Boolean
+
+    If IsEmpty(Tens) Then
+        Tens = Array("", "", "είκοσι", "τριάντα", "σαράντα", "πενήντα", _
+                     "εξήντα", "εβδομήντα", "ογδόντα", "ενενήντα")
+                     
+        UnitsF = Array("", "μία", "δύο", "τρεις", "τέσσερις", "πέντε", "έξι", _
+                       "επτά", "οκτώ", "εννέα", "δέκα", "έντεκα", "δώδεκα", _
+                       "δεκατρείς", "δεκατέσσερις", "δεκαπέντε", "δεκαέξι", _
+                       "δεκαεπτά", "δεκαοκτώ", "δεκαεννέα") ' Διορθώθηκε το δεκατέσσερα σε δεκατέσσερις
+                       
+        HundredsF = Array("", "εκατόν", "διακόσιες", "τριακόσιες", "τετρακόσιες", _
+                          "πεντακόσιες", "εξακόσιες", "επτακόσιες", "οκτακόσιες", "εννιακόσιες")
+                          
+        UnitsN = Array("", "ένα", "δύο", "τρία", "τέσσερα", "πέντε", "έξι", _
+                       "επτά", "οκτώ", "εννέα", "δέκα", "έντεκα", "δώδεκα", _
+                       "δεκατρία", "δεκατέσσερα", "δεκαπέντε", "δεκαέξι", _
+                       "δεκαεπτά", "δεκαοκτώ", "δεκαεννέα")
+                       
+        HundredsN = Array("", "εκατό", "διακόσια", "τριακόσια", "τετρακόσια", _
+                          "πεντακόσια", "εξακόσια", "επτακόσια", "οκτακόσια", "εννιακόσια")
+    End If
+    
+    If n >= 100 Then
+
+        If Gender = "N" And n >= 101 And n <= 199 Then
+            s = "εκατόν"
+            n = n Mod 100
+            If n > 0 Then s = s & " "
+        Else
+            If n = 100 Then
+                If Gender = "F" Then s = "εκατόν" Else s = "εκατό"
+            Else
+                If Gender = "F" Then s = HundredsF(Int(n / 100)) Else s = HundredsN(Int(n / 100))
+            End If
+            
+            n = n Mod 100
+            If n > 0 Then s = s & " "
+        End If
+    End If
+
+    If n >= 20 Then
+        s = s & Tens(Int(n / 10))
+        n = n Mod 10
+        If n > 0 Then
+            If Gender = "F" Then s = s & " " & UnitsF(n) Else s = s & " " & UnitsN(n)
+        End If
+    ElseIf n > 0 Then
+        If Gender = "F" Then s = s & UnitsF(n) Else s = s & UnitsN(n)
+    End If
+    
+    ThreeDigitsToGreek = Trim(s)
+
+End Function
+
+
+
+Sub ΜετατροπήΕπιλογήςΣεΛέξεις()
+
+    Dim SelText As String, CleanSel As String
+    Dim NumPart As String, RemainderText As String
+    Dim CleanNum As String, fracText As String, txt As String
+    Dim Parts() As String
+    
+    Dim WholeNum As Double
+    Dim FractionPart As Long
+    Dim SpacePos As Long
+    
+    SelText = Selection.Text
+    CleanSel = Replace(Replace(SelText, vbCr, ""), vbLf, "")
+    CleanSel = Trim(CleanSel)
+    
+    If CleanSel = "" Then
+        MsgBox "Παρακαλώ επιλέξτε έναν αριθμό!", vbExclamation, "Σφάλμα Επιλογής"
+        Exit Sub
+    End If
+    
+    SpacePos = InStr(CleanSel, " ")
+    
+    If SpacePos > 0 Then
+        NumPart = Left(CleanSel, SpacePos - 1)
+        RemainderText = Mid(CleanSel, SpacePos)
+    Else
+        NumPart = CleanSel
+        RemainderText = ""
+    End If
+    
+    CleanNum = Replace(NumPart, ".", "")
+
+    Parts = Split(CleanNum, ",")
+    
+    If Not IsNumeric(Parts(0)) Then
+        MsgBox "Η επιλογή δεν αναγνωρίζεται ως αριθμός!", vbExclamation, "Σφάλμα Δεδομένων"
+        Exit Sub
+    End If
+    
+    WholeNum = CDbl(Parts(0))
+
+    FractionPart = 0
+    If UBound(Parts) > 0 Then
+        fracText = Parts(1)
+        
+        If IsNumeric(fracText) Then
+            If Len(fracText) = 1 Then
+                FractionPart = CInt(fracText) * 10
+            Else
+                FractionPart = CInt(Left(fracText, 2))
+            End If
+        End If
+    End If
+    
+    txt = NumberToGreekWordsWithFraction(WholeNum, FractionPart)
+
+    Selection.Text = NumPart & " " & txt & RemainderText
+
+End Sub
